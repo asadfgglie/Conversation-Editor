@@ -7,6 +7,7 @@ from tkinter import filedialog, messagebox
 from functools import partial
 
 import pydantic
+from typing_extensions import Optional
 
 import schema
 from PIL import Image
@@ -145,7 +146,7 @@ class Message(cstk.CTkFrame):
                 c.cget('image').cget('light_image').convert('RGB').save(b, format='jpeg')
                 content.append(schema.ImageContent(image_url=schema.Image(url='data:image/jpeg;base64,' +
                                                                               base64.b64encode(b.getvalue()
-                ).decode('utf8'))))
+                                                                                               ).decode('utf8'))))
         content = content if len(content) > 0 else None
         content = content[0].text if content is not None and \
                                      len(content) == 1 and isinstance(content[0], schema.TextContent) else content
@@ -173,7 +174,7 @@ class App(cstk.CTk):
         self.doc_list_frame = cstk.CTkScrollableFrame(self)
         self.doc_list_frame.grid(column=0, row=1, columnspan=2, sticky='nesw')
         self.doc_list_frame.grid_columnconfigure(0, weight=1)
-        self.doc_list_button_list: list[cstk.CTkButton] = []
+        self.doc_list_button_dict: dict[str, cstk.CTkButton] = dict()
 
         self.current_file_label = cstk.CTkLabel(self, text='')
         self.current_file_label.grid(column=2, row=0, sticky='we')
@@ -206,7 +207,13 @@ class App(cstk.CTk):
         self.close_file_button.grid(column=5, row=0)
 
         def f():
-            path = filedialog.askopenfilename(filetypes=[('json文件', '.json',), ('所有文件', '.*')])
+            path = filedialog.askopenfilename(filetypes=[('json文件', '.json',), ('所有文件', '.*')]
+                                              ).replace('\\', '/')
+            if self._current_doc_button is not None:
+                self._current_doc_button.configure(state=cstk.NORMAL)
+            if path in self.doc_list_button_dict:
+                self.doc_list_button_dict[path].configure(state=cstk.DISABLED)
+                self._current_doc_button = self.doc_list_button_dict[path]
             self.load_history(path)
 
         self.open_file_button = cstk.CTkButton(self, text='開啟檔案', width=0, command=f)
@@ -220,6 +227,8 @@ class App(cstk.CTk):
 
         self.add_message_button = cstk.CTkButton(self.scroll_frame, text='新增訊息', command=self.add_message)
         self.add_message_button.grid(column=0, row=len(self.current_message_list), sticky='we')
+
+        self._current_doc_button: Optional[cstk.CTkButton] = None
 
     def add_message(self):
         self.add_message_button.grid_forget()
@@ -272,15 +281,23 @@ class App(cstk.CTk):
         self.load_entry.configure(state=cstk.NORMAL)
         self.load_entry.delete(0, cstk.END)
         self.load_entry.insert(0, path)
-        for b in self.doc_list_button_list:
+        for b in self.doc_list_button_dict.values():
             b.destroy()
+        self.doc_list_button_dict.clear()
         for i, p in enumerate(p for p in os.listdir(self.load_entry.get())
                               if os.path.isfile(os.path.join(self.load_entry.get(), p)) and p.endswith('.json')):
-            path = os.path.join(self.load_entry.get(), p)
-            self.doc_list_button_list.append(cstk.CTkButton(self.doc_list_frame, text=p,
-                                                            command=partial(self.load_history, path)))
-            self.doc_list_button_list[-1].grid(column=0, row=i, sticky='we')
-            self.doc_list_button_list[-1].configure()
+            path = os.path.join(self.load_entry.get(), p).replace('\\', '/')
+
+            def f(p):
+                if self._current_doc_button is not None:
+                    self._current_doc_button.configure(state=cstk.NORMAL)
+                self.doc_list_button_dict[p].configure(state=cstk.DISABLED)
+                self._current_doc_button = self.doc_list_button_dict[p]
+                self.load_history(p)
+
+            self.doc_list_button_dict[path] = cstk.CTkButton(self.doc_list_frame, text=p, command=partial(f, path))
+            self.doc_list_button_dict[path].grid(column=0, row=i, sticky='we')
+            self.doc_list_button_dict[path].configure()
         self.load_entry.configure(state=cstk.DISABLED)
 
     def load_history(self, file_path: str):
