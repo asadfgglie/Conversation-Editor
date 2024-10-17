@@ -284,15 +284,15 @@ class App(cstk.CTk):
         self.load_entry.configure(state=cstk.DISABLED)
 
     def load_history(self, file_path: str):
-        with open(file_path, 'r', encoding='utf8') as f:
-            obj = json.loads(f.read())
-
         try:
+            with open(file_path, 'r', encoding='utf8') as f:
+                obj = json.loads(f.read())
+
             if isinstance(obj, list):
                 history = schema.History(history=obj)
             else:
                 history = schema.History(**obj)
-        except pydantic.ValidationError as e:
+        except pydantic.ValidationError or json.JSONDecodeError as e:
             messagebox.showerror('錯誤!', f'這不是一個合法的對話紀錄檔。\n{e}')
             return
 
