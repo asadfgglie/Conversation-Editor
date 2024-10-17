@@ -77,8 +77,8 @@ class Message(cstk.CTkFrame):
         delete_button.configure(command=partial(self.delete, delete_button))
         delete_button.grid(column=4, row=len(self.content_list) + 1)
         path = filedialog.askopenfilename(filetypes=[('圖片',
-                                                             ('.jpg', '.jpeg', '.png', '.bmp', '.webp')),
-                                                            ('所有檔案', '.*')])
+                                                      ('.jpg', '.jpeg', '.png', '.bmp', '.webp')),
+                                                     ('所有檔案', '.*')])
         if path == '':
             return
         try:
@@ -116,9 +116,9 @@ class Message(cstk.CTkFrame):
 
         if len(self.content_list) > 0:
             self.add_content_button.configure(state=cstk.DISABLED
-                                              if isinstance(self.content_list[list(self.content_list.keys())[-1]],
-                                                            cstk.CTkTextbox)
-                                              else cstk.NORMAL)
+            if isinstance(self.content_list[list(self.content_list.keys())[-1]],
+                          cstk.CTkTextbox)
+            else cstk.NORMAL)
 
     def add_content(self):
         delete_button = cstk.CTkButton(self, text='X', width=0)
@@ -142,12 +142,16 @@ class Message(cstk.CTkFrame):
                 content.append(schema.TextContent(text=c.get('1.0', cstk.END).strip('\n')))
             elif isinstance(c, cstk.CTkLabel):
                 b = BytesIO()
-                c.cget('image').cget('light_image').save(b, format='jpeg')
-                content.append(schema.ImageContent(image_url=schema.Image(url=base64.b64encode(
-                    b.getvalue()
+                c.cget('image').cget('light_image').convert('RGB').save(b, format='jpeg')
+                content.append(schema.ImageContent(image_url=schema.Image(url='data:image/jpeg;base64,' +
+                                                                              base64.b64encode(b.getvalue()
                 ).decode('utf8'))))
+        content = content if len(content) > 0 else None
+        content = content[0].text if content is not None and \
+                                     len(content) == 1 and isinstance(content[0], schema.TextContent) else content
         return schema.Message(role=self.role_option_menu.get(), timestamp=self.timestamp_entry.get(),
-                              name=self.author_name_entry.get(), content=content) if len(content) > 0 else None
+                              name=self.author_name_entry.get(), content=content) \
+            if content is not None else None
 
 
 class App(cstk.CTk):
@@ -251,11 +255,20 @@ class App(cstk.CTk):
 
         self.current_file_label.configure(text=path)
 
-        if self.load_entry.get() != '':
-            self.load_path()
+        if self.load_entry.get() == '':
+            self.load_entry.configure(state=cstk.NORMAL)
+            self.load_entry.delete(0, cstk.END)
+            self.load_entry.insert(0, path[:path.replace('\\', '/').rfind('/')])
+            self.load_entry.configure(state=cstk.DISABLED)
+            self.load_path(False)
+        else:
+            self.load_path(False)
 
-    def load_path(self):
-        path = filedialog.askdirectory(mustexist=True)
+    def load_path(self, ask_folder=True):
+        if ask_folder:
+            path = filedialog.askdirectory(mustexist=True)
+        else:
+            path = self.load_entry.get()
         self.load_entry.configure(state=cstk.NORMAL)
         self.load_entry.delete(0, cstk.END)
         self.load_entry.insert(0, path)
