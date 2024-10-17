@@ -292,7 +292,7 @@ class App(cstk.CTk):
                 history = schema.History(history=obj)
             else:
                 history = schema.History(**obj)
-        except pydantic.ValidationError or json.JSONDecodeError as e:
+        except pydantic.ValidationError and json.JSONDecodeError as e:
             messagebox.showerror('錯誤!', f'這不是一個合法的對話紀錄檔。\n{e}')
             return
 
