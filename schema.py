@@ -2,7 +2,7 @@ import base64
 import time
 
 from pydantic import BaseModel, model_validator
-from typing_extensions import Literal, Optional
+from typing_extensions import Literal, Optional, Union
 
 
 class TextContent(BaseModel):
@@ -51,7 +51,7 @@ class ImageContent(BaseModel):
 
 class Message(BaseModel):
     role: Literal['user', 'assistant', 'system']
-    content: str | list[TextContent | ImageContent]
+    content: Union[str, list[Union[TextContent, ImageContent]]]
 
     name: Optional[str] = None
     """author name"""

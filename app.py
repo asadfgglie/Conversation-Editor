@@ -1,18 +1,17 @@
 import base64
 import json
 import os.path
+from collections import OrderedDict
+from functools import partial
+from io import BytesIO
+from tkinter import filedialog, messagebox
 
 import customtkinter as cstk
-from tkinter import filedialog, messagebox
-from functools import partial
-
 import pydantic
+from PIL import Image
 from typing_extensions import Optional
 
 import schema
-from PIL import Image
-from io import BytesIO
-from collections import OrderedDict
 
 
 class Message(cstk.CTkFrame):
@@ -136,7 +135,7 @@ class Message(cstk.CTkFrame):
 
         self.add_content_button.configure(state=cstk.DISABLED)
 
-    def to_message(self) -> schema.Message | None:
+    def to_message(self) -> Optional[schema.Message]:
         content = []
         for c in self.content_list.values():
             if isinstance(c, cstk.CTkTextbox):
@@ -209,18 +208,51 @@ class App(cstk.CTk):
         def f():
             path = filedialog.askopenfilename(filetypes=[('json文件', '.json',), ('所有文件', '.*')]
                                               ).replace('\\', '/')
+            if path == '':
+                return
+
             if self._current_doc_button is not None:
-                self._current_doc_button.configure(state=cstk.NORMAL)
+                try:
+                    self._current_doc_button[0].configure(state=cstk.NORMAL)
+                except Exception:
+                    self._current_doc_button = None
             if path in self.doc_list_button_dict:
                 self.doc_list_button_dict[path].configure(state=cstk.DISABLED)
-                self._current_doc_button = self.doc_list_button_dict[path]
+                self._current_doc_button = (self.doc_list_button_dict[path], path)
             self.load_history(path)
 
         self.open_file_button = cstk.CTkButton(self, text='開啟檔案', width=0, command=f)
         self.open_file_button.grid(column=6, row=0)
 
+        def f():
+            p = self.current_file_label.cget('text')
+            if p != '' and messagebox.askyesno('警告!', f'此操作不可復原，你確定要刪除位於"{p}"的檔案嗎?'):
+                try:
+                    os.remove(p)
+                except Exception as e:
+                    messagebox.showerror('錯誤!', f'無法完成刪除操作，錯誤訊息:{e}')
+                    return
+                if self._current_doc_button is not None and self._current_doc_button[1] == p:
+                    try:
+                        self._current_doc_button[0].destroy()
+                    finally:
+                        self._current_doc_button = None
+
+                self.add_message_button.grid_forget()
+                for m in self.current_message_list:
+                    m.destroy()
+                self.current_message_list.clear()
+
+                self.add_message_button.grid(column=0, row=len(self.current_message_list), sticky='we')
+
+                self.current_file_label.configure(text='')
+
+        self.delete_current_file_button = cstk.CTkButton(self, text='刪除檔案', width=0, command=f, fg_color='#992222',
+                                                         hover_color='#997777')
+        self.delete_current_file_button.grid(column=7, row=0)
+
         self.scroll_frame = cstk.CTkScrollableFrame(self)
-        self.scroll_frame.grid(column=2, row=1, columnspan=5, sticky="nsew")
+        self.scroll_frame.grid(column=2, row=1, columnspan=6, sticky="nsew")
         self.scroll_frame.grid_columnconfigure(0, weight=1)
 
         self.current_message_list: list[Message] = []
@@ -228,7 +260,7 @@ class App(cstk.CTk):
         self.add_message_button = cstk.CTkButton(self.scroll_frame, text='新增訊息', command=self.add_message)
         self.add_message_button.grid(column=0, row=len(self.current_message_list), sticky='we')
 
-        self._current_doc_button: Optional[cstk.CTkButton] = None
+        self._current_doc_button: Optional[tuple[cstk.CTkButton, str]] = None
 
     def add_message(self):
         self.add_message_button.grid_forget()
@@ -290,15 +322,25 @@ class App(cstk.CTk):
 
             def f(p):
                 if self._current_doc_button is not None:
-                    self._current_doc_button.configure(state=cstk.NORMAL)
+                    try:
+                        self._current_doc_button[0].configure(state=cstk.NORMAL)
+                    except Exception:
+                        self._current_doc_button = None
                 self.doc_list_button_dict[p].configure(state=cstk.DISABLED)
-                self._current_doc_button = self.doc_list_button_dict[p]
+                self._current_doc_button = (self.doc_list_button_dict[p], p)
                 self.load_history(p)
 
             self.doc_list_button_dict[path] = cstk.CTkButton(self.doc_list_frame, text=p, command=partial(f, path))
             self.doc_list_button_dict[path].grid(column=0, row=i, sticky='we')
             self.doc_list_button_dict[path].configure()
         self.load_entry.configure(state=cstk.DISABLED)
+
+        if self.current_file_label.cget('text') != '':
+            full_path: str = self.current_file_label.cget('text')
+            path = full_path[:full_path.rfind('/')]
+            if full_path in self.doc_list_button_dict and path == self.load_entry.get():
+                self.doc_list_button_dict[full_path].configure(state=cstk.DISABLED)
+                self._current_doc_button = self.doc_list_button_dict[full_path], full_path
 
     def load_history(self, file_path: str):
         try:
