@@ -1,6 +1,8 @@
 import base64
+import io
 import time
 
+import PIL.Image
 from pydantic import BaseModel, model_validator
 from typing_extensions import Literal, Optional, Union
 
@@ -73,6 +75,22 @@ class Message(BaseModel):
 
         return tmp
 
+    def get_format_content(self, image_token='<image>') -> str:
+        """
+        get only text content, but it will convert image content into <image> token
+        :return: text content
+        """
+        if isinstance(self.content, str):
+            return self.content
+        else:
+            tmp = []
+            for c in self.content:
+                if isinstance(c, TextContent):
+                    tmp.append(c.text)
+                else:
+                    tmp.append(image_token)
+            return '\n'.join(tmp)
+
     def __eq__(self, other):
         if not isinstance(other, Message):
             return False
@@ -92,3 +110,27 @@ class History(BaseModel):
 
     def __repr__(self):
         return super().__repr__().removeprefix(self.__class__.__name__).replace('(', '{').replace(')', '}')
+
+
+def  history_to_ShareGPT(data: Union[dict, History], is_image=True) -> dict:
+    if not isinstance(data, History):
+        data = History.model_validate(data)
+    tmp = {
+        "messages": []
+    }
+    if is_image:
+        tmp['images'] = []
+
+    for m in data.history:
+        tmp['messages'].append({
+            'role': m.role,
+            'name': m.name,
+            'content': m.get_format_content()
+        })
+
+        if isinstance(m.content, list) and is_image:
+            for c in m.content:
+                if isinstance(c, ImageContent):
+                    tmp['images'].append(PIL.Image.open(io.BytesIO(c.get_image_bytes())))
+
+    return tmp

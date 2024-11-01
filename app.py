@@ -310,6 +310,9 @@ class App(cstk.CTk):
             path = filedialog.askdirectory(mustexist=True)
         else:
             path = self.load_entry.get()
+        if path == '':
+            print('No folder to load.')
+            return
         self.load_entry.configure(state=cstk.NORMAL)
         self.load_entry.delete(0, cstk.END)
         self.load_entry.insert(0, path)
@@ -345,15 +348,22 @@ class App(cstk.CTk):
     def load_history(self, file_path: str):
         try:
             with open(file_path, 'r', encoding='utf8') as f:
-                obj = json.loads(f.read())
+                obj: dict = json.loads(f.read())
 
             if isinstance(obj, list):
                 history = schema.History(history=obj)
             else:
                 history = schema.History(**obj)
-        except pydantic.ValidationError and json.JSONDecodeError as e:
+        except json.JSONDecodeError as e:
             messagebox.showerror('錯誤!', f'這不是一個合法的對話紀錄檔。\n{e}')
             return
+        except pydantic.ValidationError:
+            obj['history'] = obj.get('messages')
+            try:
+                history = schema.History.model_validate(obj)
+            except pydantic.ValidationError as e:
+                messagebox.showerror('錯誤!', f'這不是一個合法的對話紀錄檔。\n{e}')
+                return
 
         self.add_message_button.grid_forget()
         for m in self.current_message_list:
