@@ -202,6 +202,9 @@ class App(cstk.CTk):
 
             self.add_message_button.grid(column=0, row=len(self.current_message_list), sticky='we')
 
+            self.scroll_frame.update_idletasks()
+            self.scroll_frame._parent_canvas.yview_moveto(0)
+
         self.close_file_button = cstk.CTkButton(self, text='關閉檔案', width=0, command=f)
         self.close_file_button.grid(column=5, row=0)
 
@@ -247,6 +250,9 @@ class App(cstk.CTk):
 
                 self.current_file_label.configure(text='')
 
+                self.scroll_frame.update_idletasks()
+                self.scroll_frame._parent_canvas.yview_moveto(0)
+
         self.delete_current_file_button = cstk.CTkButton(self, text='刪除檔案', width=0, command=f, fg_color='#992222',
                                                          hover_color='#997777')
         self.delete_current_file_button.grid(column=7, row=0)
@@ -263,6 +269,10 @@ class App(cstk.CTk):
         self._current_doc_button: Optional[tuple[cstk.CTkButton, str]] = None
 
     def add_message(self):
+        """
+        add new message into `scroll_frame`
+        :return: None
+        """
         self.add_message_button.grid_forget()
         self.current_message_list.append(Message(self.scroll_frame, schema.Message(role='user', content='')))
         self.current_message_list[-1].grid(column=0, row=len(self.current_message_list), sticky='we')
@@ -306,6 +316,11 @@ class App(cstk.CTk):
             self.load_path(False)
 
     def load_path(self, ask_folder=True):
+        """
+        load a folder and add json file button into sidebar
+        :param ask_folder: ask which folder to load
+        :return: None
+        """
         if ask_folder:
             path = filedialog.askdirectory(mustexist=True)
         else:
@@ -346,6 +361,11 @@ class App(cstk.CTk):
                 self._current_doc_button = self.doc_list_button_dict[full_path], full_path
 
     def load_history(self, file_path: str):
+        """
+        load `file_path` json file to `scroll_frame`
+        :param file_path: which json file to load
+        :return: None
+        """
         try:
             with open(file_path, 'r', encoding='utf8') as f:
                 obj: dict = json.loads(f.read())
@@ -377,6 +397,9 @@ class App(cstk.CTk):
         self.current_file_label.configure(text=file_path)
 
         self.add_message_button.grid(column=0, row=len(self.current_message_list), sticky='we')
+
+        self.scroll_frame.update_idletasks()
+        self.scroll_frame._parent_canvas.yview_moveto(0)
 
 
 if __name__ == '__main__':
